@@ -8,6 +8,8 @@
 
     let stations = [];
     let map;
+    let mapViewChanged = 0;
+
     
     function getCoords(station) {
         let point = new mapboxgl.LngLat(+station.Long, +station.Lat);
@@ -67,6 +69,9 @@
             e.stopPropagation();
         });
 
+        // Update mapViewChanged whenever the map is moved
+        $: map?.on('move', () => mapViewChanged++);
+
     });
 </script>
 
@@ -75,9 +80,11 @@
 
 <div id="map">
     <svg>
-        {#each stations as station}
-            <circle {...getCoords(station)} r="5" fill="steelblue" />
-        {/each}
+        {#key mapViewChanged}
+            {#each stations as station}
+                <circle {...getCoords(station)} r="5" fill="steelblue" />
+            {/each}
+        {/key}
     </svg>
 </div>
 
