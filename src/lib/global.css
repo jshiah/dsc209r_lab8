@@ -23,3 +23,31 @@ body {
     height: 100%;
     pointer-events: none;
   }
+
+
+input[type="range"] {
+    width: 300%
+}
+
+  header {
+    display: flex;
+    gap: 1em;
+    align-items: baseline;
+  }
+  
+  label {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  
+  time, em {
+    display: block; /* Ensure time and em are on their own lines */
+  }
+  
+  em {
+    color: #999;
+    font-style: italic;
+  }
+  

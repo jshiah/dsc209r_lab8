@@ -7,6 +7,7 @@
     import * as d3 from 'd3';
 
     let stations = [];
+    let trips = [];
     let map;
     let mapViewChanged = 0;
 
@@ -16,11 +17,58 @@
         let { x, y } = map.project(point);
         return { cx: x, cy: y };
     }
+
+    // Reactive scale for radius
+    $: radiusScale = d3
+        .scaleSqrt()
+        .domain([0, d3.max(stations, (d) => d.totalTraffic || 0)])
+        .range([0, 25]);
     
+
+    // Step 5: Interactive data filtering
+    let timeFilter = -1; // Default to "any time"
+    let formattedTime = "Any time";
+
+    // Reactive statement to update formatted time
+    $: formattedTime = timeFilter === -1
+      ? "Any time"
+      : new Date(0, 0, 0, Math.floor(timeFilter / 60), timeFilter % 60).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
 
     onMount(async() => {
         stations = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-stations.csv');
-        console.log(stations); 
+        console.log("Stations:", stations); 
+
+        trips = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-traffic-2024-03.csv')
+        console.log("Trips:", trips); 
+
+        // Calculate arrivals and departures
+        const departures = d3.rollup(
+            trips,
+            (v) => v.length,
+            (d) => d.start_station_id
+        );
+        const arrivals = d3.rollup(
+            trips,
+            (v) => v.length,
+            (d) => d.end_station_id
+        );
+
+        // Augment stations with traffic data
+        stations = stations.map((station) => {
+            let id = station.Number;
+            station.arrivals = arrivals.get(id) ?? 0;
+            station.departures = departures.get(id) ?? 0;
+            station.totalTraffic = station.arrivals + station.departures;
+        return station;
+        });
+
+        console.log("Augmented Stations:", stations);
+
 
         map = new mapboxgl.Map({
             /* options */
@@ -77,13 +125,35 @@
 
 <h1>DSC209R Lab 8: Geospatial Visualization | Joyce Shiah </h1>
 <p> UCSD Master's of Data Science DSC 209R Data Visualization Course | Fall '24 </p>
+<label>
+    Filter by time:
+    <input
+      type="range"
+      id="time-filter"
+      min="-1"
+      max="1440"
+      bind:value={timeFilter}
+    />
+    <time>{formattedTime}</time>
+    <em>{timeFilter === -1 ? "(any time)" : ""}</em>
+  </label>
+
 
 <div id="map">
-    <svg>
+    <svg width="100%" height="100%">
         {#key mapViewChanged}
-            {#each stations as station}
-                <circle {...getCoords(station)} r="5" fill="steelblue" />
-            {/each}
+            {#if map}
+                {#each stations as station}
+                    <circle
+                        {...getCoords(station)}
+                        r={radiusScale(station.totalTraffic || 0)}
+                        fill="steelblue"
+                        fill-opacity="0.6"
+                        stroke="white"
+                        stroke-width="0.5"
+                    />
+                {/each}
+            {/if}
         {/key}
     </svg>
 </div>
