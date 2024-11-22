@@ -10,6 +10,8 @@
     let trips = [];
     let map;
     let mapViewChanged = 0;
+    
+    
 
     
     function getCoords(station) {
@@ -38,36 +40,87 @@
           hour12: true
         });
 
+    function minutesSinceMidnight(date) {
+        return date.getHours() * 60 + date.getMinutes();
+    }
 
-    onMount(async() => {
-        stations = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-stations.csv');
-        console.log("Stations:", stations); 
-
-        trips = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-traffic-2024-03.csv')
-        console.log("Trips:", trips); 
-
-        // Calculate arrivals and departures
-        const departures = d3.rollup(
-            trips,
-            (v) => v.length,
-            (d) => d.start_station_id
-        );
-        const arrivals = d3.rollup(
-            trips,
-            (v) => v.length,
-            (d) => d.end_station_id
-        );
-
-        // Augment stations with traffic data
-        stations = stations.map((station) => {
-            let id = station.Number;
-            station.arrivals = arrivals.get(id) ?? 0;
-            station.departures = departures.get(id) ?? 0;
-            station.totalTraffic = station.arrivals + station.departures;
-        return station;
+    $: filteredTrips = timeFilter === -1
+        ? trips
+        : trips.filter((trip) => {
+            let startedMinutes = minutesSinceMidnight(trip.started_at);
+            let endedMinutes = minutesSinceMidnight(trip.ended_at);
+            return (
+                Math.abs(startedMinutes - timeFilter) <= 60 ||
+                Math.abs(endedMinutes - timeFilter) <= 60
+            );
         });
+    
+    $: filteredArrivals = d3.rollup(
+        filteredTrips,
+        (v) => v.length,
+        (d) => d.end_station_id
+    );
 
-        console.log("Augmented Stations:", stations);
+    $: filteredDepartures = d3.rollup(
+        filteredTrips,
+        (v) => v.length,
+        (d) => d.start_station_id
+    );
+    $: filteredStations = stations.map((station) => {
+        let id = station.Number;
+        station = { ...station }; // Clone the station object
+        station.arrivals = filteredArrivals.get(id) ?? 0;
+        station.departures = filteredDepartures.get(id) ?? 0;
+        station.totalTraffic = station.arrivals + station.departures;
+        return station;
+    });
+    
+    $: radiusScale = d3
+        .scaleSqrt()
+        .domain([0, d3.max(filteredStations, (d) => d.totalTraffic || 0)])
+        .range(timeFilter === -1 ? [0, 25] : [3, 50]);
+
+
+
+
+
+
+onMount(async () => {
+  stations = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-stations.csv');
+  console.log("Stations:", stations);
+
+  trips = await d3.csv('https://vis-society.github.io/labs/8/data/bluebikes-traffic-2024-03.csv').then(trips => {
+    for (let trip of trips) {
+      trip.started_at = new Date(trip.started_at);
+      trip.ended_at = new Date(trip.ended_at);
+    }
+    return trips;
+  });
+  console.log("Processed Trips:", trips);
+
+  // Calculate arrivals and departures
+  const departures = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.start_station_id
+  );
+  const arrivals = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.end_station_id
+  );
+
+  // Augment stations with traffic data
+  stations = stations.map((station) => {
+    let id = station.Number;
+    station.arrivals = arrivals.get(id) ?? 0;
+    station.departures = departures.get(id) ?? 0;
+    station.totalTraffic = station.arrivals + station.departures;
+    return station;
+  });
+
+  console.log("Augmented Stations:", stations);
+
 
 
         map = new mapboxgl.Map({
@@ -120,6 +173,10 @@
         // Update mapViewChanged whenever the map is moved
         $: map?.on('move', () => mapViewChanged++);
 
+        console.log("Filtered Trips Near Midnight:", filteredTrips);
+        console.log("Filtered Stations Near Midnight:", filteredStations);
+        console.log("Radius Scale Domain:", radiusScale.domain());
+
     });
 </script>
 
@@ -139,22 +196,23 @@
   </label>
 
 
-<div id="map">
+  <div id="map">
     <svg width="100%" height="100%">
-        {#key mapViewChanged}
-            {#if map}
-                {#each stations as station}
-                    <circle
-                        {...getCoords(station)}
-                        r={radiusScale(station.totalTraffic || 0)}
-                        fill="steelblue"
-                        fill-opacity="0.6"
-                        stroke="white"
-                        stroke-width="0.5"
-                    />
-                {/each}
-            {/if}
-        {/key}
+      {#key mapViewChanged}
+        {#if map}
+          {#each filteredStations as station}
+            <circle
+              {...getCoords(station)}
+              r={radiusScale(station.totalTraffic || 0)}
+              fill="steelblue"
+              fill-opacity="0.6"
+              stroke="white"
+              stroke-width="0.5"
+            />
+          {/each}
+        {/if}
+      {/key}
     </svg>
-</div>
+  </div>
+  
 
