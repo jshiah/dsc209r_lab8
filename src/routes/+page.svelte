@@ -11,9 +11,9 @@
     let map;
     let mapViewChanged = 0;
     
-    
-
-    
+    // Quantize scale for departure ratio
+    let stationFlow = d3.scaleQuantize().domain([0, 1]).range([0, 0.5, 1]);
+ 
     function getCoords(station) {
         let point = new mapboxgl.LngLat(+station.Long, +station.Lat);
         let { x, y } = map.project(point);
@@ -204,7 +204,7 @@ onMount(async () => {
             <circle
               {...getCoords(station)}
               r={radiusScale(station.totalTraffic || 0)}
-              fill="steelblue"
+              style="--departure-ratio: {stationFlow(station.departures / station.totalTraffic || 0)}"
               fill-opacity="0.6"
               stroke="white"
               stroke-width="0.5"
@@ -214,5 +214,13 @@ onMount(async () => {
       {/key}
     </svg>
   </div>
+
+  <div class="legend">
+    <div style="--departure-ratio: 1">More departures</div>
+    <div style="--departure-ratio: 0.5">Balanced</div>
+    <div style="--departure-ratio: 0">More arrivals</div>
+  </div>
+  
+  
   
 
