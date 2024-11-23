@@ -75,10 +75,10 @@
         return station;
     });
     
-    $: radiusScale = d3
-        .scaleSqrt()
-        .domain([0, d3.max(filteredStations, (d) => d.totalTraffic || 0)])
-        .range(timeFilter === -1 ? [0, 25] : [3, 50]);
+    // $: radiusScale = d3
+    //     .scaleSqrt()
+    //     .domain([0, d3.max(filteredStations, (d) => d.totalTraffic || 0)])
+    //     .range(timeFilter === -1 ? [0, 25] : [3, 50]);
 
 
 
